@@ -4,11 +4,12 @@
 
 package com.cloudera.datascience
 
+import scopt.OptionParser
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.feature.{CountVectorizer, RegexTokenizer, StopWordsRemover}
 import org.apache.spark.ml.clustering.{LDA, LDAModel}
-import scopt.OptionParser
+import org.apache.spark.ml.linalg.Vector
 
 object LDAExample {
   val gutenbergBase = "hdfs:///user/sowen/DataSets/gutenberg"
@@ -19,7 +20,9 @@ object LDAExample {
   case class Params(
                      dataDir: String = gutenbergBase,
                      stopwordFile: String = "",
-                     saveModelDir: String = ""
+                     saveModelDir: String = "",
+                     kValues: Int = 10,
+                     maxIter: Int =  100
                    )
 
   def main(args: Array[String]): Unit = {
@@ -38,6 +41,15 @@ object LDAExample {
         .text(s"hdfs location to save the LDA model" +
           s"  default: ${defaultParams.saveModelDir}")
         .action((x, c) => c.copy(saveModelDir = x))
+      opt[Int]("kValues")
+        .text(s"the number of topics" +
+          s"  default: ${defaultParams.kValues}")
+        .action((x, c) => c.copy(kValues = x))
+      opt[Int]("maxIter")
+        .text(s"the number of iterations on the training data. Note: kValue * maxIter and subSampleRate = 0.05 would " +
+          s"determine the number of passes over the entire data" +
+          s"  default: ${defaultParams.maxIter}")
+        .action((x, c) => c.copy(maxIter = x))
     }
 
     parser.parse(args, defaultParams) match {
@@ -94,7 +106,7 @@ object LDAExample {
     println(s"Number of obs in train ${train.count()}")
     println(s"Number of obs in test ${test.count()}")
 
-    val vocabSize = 50000
+    val vocabSize = 100000
     val countVectorizer = new CountVectorizer()
       .setVocabSize(vocabSize)
       .setInputCol("tokens")
@@ -110,12 +122,66 @@ object LDAExample {
     val vocabularyTest = vocabModelTest.vocabulary
 
     val startTime = System.nanoTime()
-    val ldaModels = fitLDA(df = docTermFreqs, kValues = Seq(10), maxIter = Seq(100), subSampleRate = 0.05,
+    val ldaModels = fitLDA(df = docTermFreqs, kValues = Seq(params.kValues), maxIter = Seq(params.maxIter), subSampleRate = 0.05,
       optDocConcentration = true, docTermFreqsTest, saveModelDir = params.saveModelDir)
     val elapsed = (System.nanoTime() - startTime) / 1e9
     println(s"Finished training LDA model.  Summary:")
     println(s"Training time (sec)\t$elapsed")
     println(s"==========")
+
+    val modelResults = ldaModels.map { k =>
+      k.map { m =>
+        (m.getK, m.getMaxIter, m.logPerplexity(docTermFreqsTest), m)
+      }
+    }
+    println()
+    modelResults.flatten.map(row => (row._1, row._2, row._3)).foreach(println)
+    println()
+    val results = modelResults.flatten.sortBy(_._3)
+    println(s"The best model is for parameters - K = ${results(0)._1} and maxIteration = ${results(0)._2}")
+
+    val bestModel = results(0)._4
+
+    /*
+    Describe the 10 topics
+    */
+    println("Best model topics: ")
+
+    println("The topics described by their top10 weighted terms:")
+    val topicIndices = bestModel.describeTopics(maxTermsPerTopic = 10).rdd.map{
+      r =>
+        val term = r.getSeq[Int](1).map(t => vocabulary(t))
+        (term, r.getSeq[Double](2))
+    }.collect()
+
+    val topics = topicIndices.map { case (terms, termWeights) =>
+      terms.zip(termWeights).map { case (term, weight) => (term, weight) }
+    }
+    topics.zipWithIndex.foreach { case (topic, i) =>
+      println(s"TOPIC $i")
+      topic.foreach { case (term, weight) =>
+        println(s"$term\t$weight")
+      }
+      println()
+    }
+
+    /*
+    Lookup the topic with highest probability
+    */
+    val findIndexMax = udf{ x: Vector =>
+      val max = x.toArray.max
+      x.toArray.indexOf(max)
+    }
+    val trainScored = bestModel.transform(docTermFreqs).
+      withColumn("topic", findIndexMax($"topicDistribution"))
+
+    val testScored = bestModel.transform(docTermFreqsTest).
+      withColumn("topic", findIndexMax($"topicDistribution"))
+    /*
+    Sample 10 obs from each set
+    */
+    trainScored.show(10, false)
+    testScored.show(10, false)
   }
 
   def stripHeaderFooter(text: String): String = {
@@ -152,7 +218,7 @@ object LDAExample {
           .setFeaturesCol("features")
           .fit(df)
         println(s"Perplexity on test set: ${ldaModel.logPerplexity(testDF)}")
-        ldaModel.save(s"${saveModelDir}LDAK${k}Iter${m}SampleRate${subSampleRate}")
+        //ldaModel.save(s"${saveModelDir}LDAK${k}Iter${m}SampleRate${subSampleRate}")
         ldaModel
       }
     }
