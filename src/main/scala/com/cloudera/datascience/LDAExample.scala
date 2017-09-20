@@ -122,8 +122,8 @@ object LDAExample {
     val vocabularyTest = vocabModelTest.vocabulary
 
     val startTime = System.nanoTime()
-    val ldaModels = fitLDA(df = docTermFreqs, kValues = Seq(params.kValues), maxIter = Seq(params.maxIter), subSampleRate = 0.05,
-      optDocConcentration = true, docTermFreqsTest, saveModelDir = params.saveModelDir)
+    val ldaModels = fitLDA(df = docTermFreqs, kValues = Seq(params.kValues), maxIter = Seq(params.maxIter),
+      subSampleRate = 0.05, optDocConcentration = true, docTermFreqsTest, saveModelDir = params.saveModelDir)
     val elapsed = (System.nanoTime() - startTime) / 1e9
     println(s"Finished training LDA model.  Summary:")
     println(s"Training time (sec)\t$elapsed")
@@ -180,8 +180,8 @@ object LDAExample {
     /*
     Sample 10 obs from each set
     */
-    trainScored.show(10, false)
-    testScored.show(10, false)
+    trainScored.show(10)
+    testScored.show(10)
   }
 
   def stripHeaderFooter(text: String): String = {
