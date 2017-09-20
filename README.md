@@ -5,6 +5,7 @@ cd [wherever the project directory is]
 mvn -Pspark-deploy package
 ```
 ## Deploy
+Note: for kValues=10 and maxIter=100 on 10% sample data takes around 2 hours to run
 ````
 spark2-submit \
  --master yarn --deploy-mode client \
@@ -23,5 +24,5 @@ spark2-submit \
  altus-lda-example-1.0-SNAPSHOT-jar-with-dependencies.jar \
  	--dataDir hdfs:///user/sowen/DataSets/gutenberg \
  	--stopwordFile hdfs:///user/nisha/stopwords.txt \
- 	--saveModelDir hdfs:///user/nisha/LDAModels
+ 	--saveModelDir hdfs:///user/nisha/LDAModels \
 ````
