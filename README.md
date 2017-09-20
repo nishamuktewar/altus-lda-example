@@ -12,7 +12,6 @@ spark2-submit \
  --executor-memory 10g \
  --driver-memory 10g \
  --conf spark.yarn.executor.memoryOverhead=5g \
- --conf spark.driver.extraJavaOptions=-Dbigdl.check.singleton=false \
  --conf spark.shuffle.reduceLocality.enabled=false \
  --conf spark.driver.maxResultSize=5g \
  --num-executors 4 --executor-cores 4 \
