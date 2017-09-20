@@ -24,7 +24,6 @@ spark2-submit \
  	--dataDir hdfs:///user/sowen/DataSets/gutenberg \
  	--stopwordFile hdfs:///user/nisha/stopwords.txt \
  	--saveModelDir hdfs:///user/nisha/LDAModels \
- 	--saveModelDir hdfs:///user/nisha/LDAModels \
  	--kValues 10 \
  	--maxIter 20
 ````
