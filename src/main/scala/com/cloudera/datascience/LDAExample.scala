@@ -53,12 +53,12 @@ object LDAExample {
     }
 
     parser.parse(args, defaultParams) match {
-      case Some(params) => preprocess(params)
+      case Some(params) => runLDA(params)
       case _ => sys.exit(1)
     }
   }
 
-  def preprocess(params: Params): Unit = {
+  def runLDA(params: Params): Unit = {
     //Start a Spark session
     val spark = SparkSession.builder().appName("LDAExample: an example LDA app for gutenberg data.").getOrCreate()
 
