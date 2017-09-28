@@ -6,13 +6,10 @@
 
     <groupId>com.cloudera.datascience</groupId>
     <artifactId>altus-lda-example</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
     <name>Altus LDA Demo</name>
 
-    <prerequisites>
-        <maven>3.2.5</maven>
-    </prerequisites>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -32,12 +29,6 @@
                 <configuration>
                     <scalaVersion>${scala.complete.version}</scalaVersion>
                     <scalaCompatVersion>${scala.minor.version}</scalaCompatVersion>
-                    <javacArgs>
-                        <javacArg>-source</javacArg>
-                        <javacArg>${java.version}</javacArg>
-                        <javacArg>-target</javacArg>
-                        <javacArg>${java.version}</javacArg>
-                    </javacArgs>
                 </configuration>
                 <executions>
                     <execution>
@@ -115,7 +106,7 @@
         <dependency>
             <groupId>com.github.scopt</groupId>
             <artifactId>scopt_${scala.minor.version}</artifactId>
-            <version>3.5.0</version>
+            <version>3.7.0</version>
         </dependency>
     </dependencies>
 
