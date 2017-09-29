@@ -13,10 +13,6 @@ object AltusLDARunner {
         .text(s"HDFS location of the text files" +
           s"  default: ${defaultParams.dataDir}")
         .action((x, c) => c.copy(dataDir = x))
-      opt[String]("stopwordFile")
-        .text(s"local file path for a list of stopwords" +
-          s"  default: ${defaultParams.stopwordFile}")
-        .action((x, c) => c.copy(stopwordFile = x))
       opt[Double]("sampleRate")
         .text("fraction of data to use" +
           s"  default: ${defaultParams.sampleRate}")

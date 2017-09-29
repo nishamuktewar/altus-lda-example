@@ -11,7 +11,6 @@ object AltusLDAExample {
 
   case class Params(
       dataDir: String = "hdfs:///user/sowen/DataSets/gutenberg",
-      stopwordFile: String = "src/main/resources/stopwords.txt",
       sampleRate: Double = 0.1,
       kValues: String = "10,30,100",
       maxIter: Int = 20) {
@@ -71,7 +70,8 @@ object AltusLDAExample {
       transform(allTexts)
 
     // Filter out stopwords
-    val stopwordsFile = new File(params.stopwordFile)
+    val stopwordsPath = "src/main/resources/stopwords.txt"
+    val stopwordsFile = new File(stopwordsPath)
     val stopwordsStream =
       if (stopwordsFile.exists()) {
         // Try reading local file; working locally
@@ -79,7 +79,7 @@ object AltusLDAExample {
       } else {
         // Try reading from classpath; deployed app
         Source.fromInputStream(
-          this.getClass.getClassLoader.getResourceAsStream(params.stopwordFile))
+          this.getClass.getClassLoader.getResourceAsStream(stopwordsPath))
       }
     val stopwords = stopwordsStream.getLines().toArray
     stopwordsStream.close()
