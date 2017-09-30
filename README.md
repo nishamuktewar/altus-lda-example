@@ -102,8 +102,8 @@ spark2-submit \
   --conf spark.yarn.executor.memoryOverhead=4g \
   --conf spark.dynamicAllocation.enabled=false \
   --conf spark.kryoserializer.buffer.max=256m \
-  --class com.cloudera.datascience.LDAExample \
-  altus-lda-example-1.0.0-jar-with-dependencies.jar \
+  --class altus.AltusLDAExample \
+  target/altus-lda-example-1.0.0-jar-with-dependencies.jar \
  	--dataDir hdfs:///user/ds/gutenberg \
  	--sampleRate 1.0 \
  	--kValues 5,10,25,100,250 \

@@ -1,7 +1,8 @@
 package altus
 
-import altus.AltusLDAExample.Params
+import org.apache.spark.sql.SparkSession
 import scopt.OptionParser
+import altus.AltusLDAExample.Params
 
 object AltusLDARunner {
 
