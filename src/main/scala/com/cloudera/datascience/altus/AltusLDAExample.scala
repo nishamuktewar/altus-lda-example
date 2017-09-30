@@ -10,10 +10,10 @@ object AltusLDAExample {
   // START Workbench ------------------------------
 
   case class Params(
-      dataDir: String = "hdfs:///user/sowen/DataSets/gutenberg",
+      dataDir: String = "hdfs:///user/ds/gutenberg", // Remember to update this!
       sampleRate: Double = 0.1,
       kValues: String = "10,30,100",
-      maxIter: Int = 20) {
+      maxIter: Int = 10) {
     def kValuesList: Seq[Int] = kValues.split(",").map(_.trim.toInt)
   }
 
@@ -49,17 +49,20 @@ object AltusLDAExample {
         if (footerStart < 0) lines.length else footerStart).mkString(" ")
     }
 
-    // Must glob 3 times to get all files at all levels of the Gutenberg archive.
+    // Must glob many times to get all files at all levels of the Gutenberg archive.
     // Default partitioning would leave very small and large partitions as few are at
     // the higher levels and many at lower levels.
     // Explicitly set partitions in order to roughly reflect the number of files
-    // at each level.
-    val basePartitions = 2
-    val allTexts = spark.sparkContext.union(
-      spark.sparkContext.wholeTextFiles(s"${params.dataDir}/*/*/*.txt", basePartitions),
-      spark.sparkContext.wholeTextFiles(s"${params.dataDir}/*/*/*/*.txt", 10 * basePartitions),
-      spark.sparkContext.wholeTextFiles(s"${params.dataDir}/*/*/*/*/*.txt", 63 * basePartitions)
-    ).mapValues(stripHeaderFooter).toDF("path", "text")
+    // at each level, so about 500 files are in each2
+    val textRDDs = Seq((3, 1), (4, 2), (5, 18), (6, 114), (7, 1)).map {
+      case (depth, partitions) =>
+        val path = s"""${params.dataDir}${"/*" * depth}.txt"""
+        // for example, if depth is 3, then this makes path like dir/*/*/*.txt
+        spark.sparkContext.wholeTextFiles(path, partitions)
+    }
+    val allTexts = spark.sparkContext.union(textRDDs).
+      mapValues(stripHeaderFooter).
+      toDF("path", "text")
 
     // Split each document into words
     val tokens = new RegexTokenizer().
