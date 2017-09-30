@@ -2,6 +2,8 @@ package altus
 
 // Workbench users: execute only the code between START and END blocks
 
+import org.apache.spark.sql.SparkSession
+
 object AltusLDAExample {
 
 
@@ -22,12 +24,17 @@ object AltusLDAExample {
 
   private[altus] def run(spark: SparkSession): Unit = {
 
+    import spark.implicits._
 
     // START Workbench ------------------------------
 
     import java.io.File
-
     import scala.io.Source
+
+    import org.apache.spark.ml.clustering.LDA
+    import org.apache.spark.ml.feature.{CountVectorizer, RegexTokenizer, StopWordsRemover}
+    import org.apache.spark.ml.linalg.Vector
+    import org.apache.spark.sql.functions.udf
 
     // Parse raw text into lines, ignoring boilerplate header/footer
     val newlinesRegex = "\n+".r
