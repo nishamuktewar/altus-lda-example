@@ -12,7 +12,7 @@ object AltusLDAExample {
   case class Params(
       dataDir: String = "hdfs:///user/ds/gutenberg", // Remember to update this!
       sampleRate: Double = 0.1,
-      kValues: String = "10,30,100",
+      kValues: String = "10,30",
       maxIter: Int = 10) {
     def kValuesList: Seq[Int] = kValues.split(",").map(_.trim.toInt)
   }
@@ -29,6 +29,7 @@ object AltusLDAExample {
     // START Workbench ------------------------------
 
     import java.io.File
+    import java.net.URI
     import scala.io.Source
 
     import org.apache.spark.ml.clustering.LDA
@@ -61,7 +62,7 @@ object AltusLDAExample {
         spark.sparkContext.wholeTextFiles(path, partitions)
     }
     val allTexts = spark.sparkContext.union(textRDDs).
-      mapValues(stripHeaderFooter).
+      map { case (path, text) => (URI.create(path).getPath, stripHeaderFooter(text)) }.
       toDF("path", "text")
 
     // Split each document into words
@@ -106,7 +107,7 @@ object AltusLDAExample {
 
     // Learn the vocabulary of the whole test set
     val countVectorizer = new CountVectorizer().
-      setVocabSize(100000).
+      setVocabSize(65536).
       setInputCol("tokens").
       setOutputCol("features")
     val vocabModel = countVectorizer.fit(sampleSubset)
