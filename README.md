@@ -40,9 +40,7 @@ Run a Scala session with 4 CPUs and 8GB of RAM. (More, or less, depending on you
 
 [AltusLDAExample.scala](blob/master/src/main/scala/com/datascience/altus/AltusLDAExample.scala) is set up
 primarily as code that can be run and manipulated by itself in the Workbench, while still compiling
-as part of a runnable Spark application.
-
-As such it requires running most, but not all, code in the file, as some code here is required for the
+as part of a runnable Spark application. As such it requires running most, but not all, code in the file, as some code here is required for the
 app packaging but will not work with the Workbench. Select and execute code within the two START/END blocks only.
 
 The code builds and evaluates a few LDA models based on a subset of the data, and prints information
@@ -55,6 +53,9 @@ the cloud by spinning up a much larger transient cluster with Altus on AWS to tr
 set.
 
 ### Build the Spark App
+
+*Note:* You can skip this step and use the pre-built JAR file at 
+`s3://altus-cdsw-lda-example/altus-lda-example-1.0.0-jar-with-dependencies.jar`.
 
 The code is already set up to be packaged as a stand-alone JAR file that can be run with `spark-submit` or
 Altus. It must first be built. This can be done in the Workbench's Terminal, even.
@@ -75,7 +76,15 @@ mvn -Pcloudera -Pspark-deploy package
 
 This produces a runnable JAR file like `altus-lda-example-1.0.0-jar-with-dependencies.jar` in `target/`.
 
+Upload it to S3, like so:
+
+```bash
+aws s3 cp --recursive target/altus-lda-example-1.0.0-jar-with-dependencies.jar s3://[your-bucket-here]/
+```
+
 ### Get the Data
+
+*Note:* You can skip this step and use the data already copied to `s3://altus-cdsw-lda-example/`.
 
 The data and JAR file both need to first be added to Amazon's S3 storage service. The same data files need
 to exist in an S3 bucket that you have access to. Given the directory of files that was unpacked above to
@@ -85,27 +94,42 @@ upload to HDFS, it can be uploaded to an S3 bucket with:
 aws s3 cp --recursive gutenberg s3://[your-bucket-here]/
 ```
 
-The S3 bucket `s3://altus-cdsw-lda-example/` already contains this data, and can be used directly if desired
-instead of uploading.
+### Set Up AWS
+
+Using Altus currently means using AWS. You will need an AWS account, one that has billing set up, because
+the following operations will incur AWS charges. You'll also need to know the Access Key and Secret Key for 
+your account. These are available the AWS Console account menu, under "My Security Credentials".
+
+Altus will also require an SSH key. Navigate to the EC2 service in AWS, and choose a zone like us-east-2 (Ohio)
+from the region menu. Under "Network & Security" at the left, see "Key Pairs". Create a new key pair called
+"AltusLDAExampleKey", and make sure to keep and secure the `AltusLDAExampleKey.pem` private key file that is
+created.
 
 ### Deploy to Altus
 
-TODO (this spark-submit won't be how Altus does it)
+Log in to Altus from https://www.cloudera.com/products/altus.html .
 
-```bash
-spark2-submit \
-  --master yarn --deploy-mode client \
-  --driver-memory 4g \
-  --num-executors 5 \
-  --executor-cores 12 \
-  --executor-memory 12g \
-  --conf spark.yarn.executor.memoryOverhead=4g \
-  --conf spark.dynamicAllocation.enabled=false \
-  --conf spark.kryoserializer.buffer.max=256m \
-  --class altus.AltusLDAExample \
-  target/altus-lda-example-1.0.0-jar-with-dependencies.jar \
- 	--dataDir hdfs:///user/ds/gutenberg \
- 	--sampleRate 1.0 \
- 	--kValues 5,10,25,100,250 \
- 	--maxIter 100
-```
+To use Altus, first, you must set up an Environment. Choose "Environments" from the left and click "Quickstart".
+Click "Create" next to AWS. 
+
+Set the Altus Environment Name to AltusLDAExample and choose the same region in which you created the SSH keys above,
+such as `us-east-2`. Leave other options at the default. Supply your AWS Access Key and Secret Key when prompted.
+
+Return to the main Altus pane and choose "Jobs" from the left, and choose "Submit Jobs". Fill out the details as
+follow:
+
+- Job Settings
+  - Submission: Single job
+  - Job Type: Spark
+  - Job Name: `AltusLDAExample`
+  - Main Class: `altus.AltusLDAExample`
+  - Jars: `s3://altus-cdsw-lda-example/altus-lda-example-1.0.0-jar-with-dependencies.jar` (or your uploaded JAR)
+  - Application Arguments: `--dataDir s3://altus-cdsw-lda-example --sampleRate 1.0 --kValues 5,10,25,100,250 --maxIter 30`
+  - Spark Arguments: `--driver-memory 4g --num-executors 3 --executor-cores 7 --executor-memory 20g --conf spark.yarn.executor.memoryOverhead=8g --conf spark.dynamicAllocation.enabled=false --conf spark.kryoserializer.buffer.max=256m`
+- Cluster Settings
+  - Cluster: Create New
+  - Cluster Name: AltusLDAExample-cluster
+  - Service Type: Spark 2.x
+  - CDH Version: CDH 5.12
+  - Environment: `AltusLDAExample`
+- Node Config: 3x m4.2xlarge Workers
