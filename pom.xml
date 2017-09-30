@@ -48,7 +48,7 @@
           </descriptorRefs>
           <archive>
             <manifest>
-              <mainClass>com.cloudera.datascience.altus.AltusLDARunner</mainClass>
+              <mainClass>altus.AltusLDARunner</mainClass>
             </manifest>
           </archive>
         </configuration>

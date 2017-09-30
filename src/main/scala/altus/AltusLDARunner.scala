@@ -1,7 +1,6 @@
-package com.cloudera.datascience.altus
+package altus
 
-import com.cloudera.datascience.altus.AltusLDAExample.Params
-import org.apache.spark.sql.SparkSession
+import altus.AltusLDAExample.Params
 import scopt.OptionParser
 
 object AltusLDARunner {
