@@ -1,3 +1,5 @@
 .idea/
+.ivy2/
+.m2/
 *.iml
 target/
