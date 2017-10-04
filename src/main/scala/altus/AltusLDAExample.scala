@@ -74,8 +74,7 @@ object AltusLDAExample {
       transform(allTexts)
 
     // Filter out stopwords
-    val stopwordsPath = "src/main/resources/stopwords.txt"
-    val stopwordsFile = new File(stopwordsPath)
+    val stopwordsFile = new File("src/main/resources/stopwords.txt")
     val stopwordsStream =
       if (stopwordsFile.exists()) {
         // Try reading local file; working locally
@@ -83,7 +82,7 @@ object AltusLDAExample {
       } else {
         // Try reading from classpath; deployed app
         Source.fromInputStream(
-          this.getClass.getClassLoader.getResourceAsStream(stopwordsPath))
+          this.getClass.getClassLoader.getResourceAsStream(stopwordsFile.getName))
       }
     val stopwords = stopwordsStream.getLines().toArray
     stopwordsStream.close()

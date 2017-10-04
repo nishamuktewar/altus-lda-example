@@ -116,12 +116,18 @@
   <profiles>
     <profile>
       <id>spark-deploy</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
       <properties>
         <spark.deps.scope>provided</spark.deps.scope>
       </properties>
     </profile>
     <profile>
       <id>cloudera</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
       <properties>
         <spark.version>2.2.0.cloudera1</spark.version>
       </properties>

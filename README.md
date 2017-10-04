@@ -19,7 +19,7 @@ with Altus in the cloud to build a better model.
 ### Get Data
 
 This example requires the complete Project Gutenberg archive. While the public domain text can be copied
-from the project mirrors, it's very large. A compressed archive with only the text files can be downloaded,
+from the project mirrors, it's very large. A compressed archive of only the text files can be downloaded,
 decompressed, and uploaded to a directory like `/user/ds/gutenberg` on HDFS as follows:
 
 ```bash
@@ -52,10 +52,27 @@ With a working model selection process, it's possible to temporarily leverage mu
 the cloud by spinning up a much larger transient cluster with Altus on AWS to try more models on the full data
 set.
 
+### Set Up AWS
+
+Using Altus currently means using AWS or Microsoft Azure. We'll use AWS in this example.
+
+You will need an AWS account, one that has billing set up, because
+the following operations will incur AWS charges. You'll also need to know the Access Key and Secret Key for 
+your account. These are available the AWS Console account menu, under "My Security Credentials".
+
+Altus will also require an SSH key. Navigate to the EC2 service in AWS, and choose a zone like `us-east-2` (Ohio)
+from the region menu. Under "Network & Security" at the left, see "Key Pairs". Create a new key pair called
+`AltusLDAExampleKey`, and make sure to keep and secure the `AltusLDAExampleKey.pem` private key file that is
+created.
+
+You'll also need to install the AWS CLI interface. In the Workbench Terminal, `pip install awscli`.
+Add your credentials with `aws configure`. Note that this means your AWS credentials are stored in the
+Workbench project!
+
 ### Build the Spark App
 
 *Note:* You can skip this step and use the pre-built JAR file at 
-`s3://altus-cdsw-lda-example/altus-lda-example-1.0.0-jar-with-dependencies.jar`.
+`s3a://altus-cdsw-lda-example/altus-lda-example-1.0.0-jar-with-dependencies.jar`.
 
 The code is already set up to be packaged as a stand-alone JAR file that can be run with `spark-submit` or
 Altus. It must first be built. This can be done in the Workbench's Terminal, even.
@@ -79,12 +96,12 @@ This produces a runnable JAR file like `altus-lda-example-1.0.0-jar-with-depende
 Upload it to S3, like so:
 
 ```bash
-aws s3 cp --recursive target/altus-lda-example-1.0.0-jar-with-dependencies.jar s3://[your-bucket-here]/
+aws s3 cp target/altus-lda-example-1.0.0-jar-with-dependencies.jar s3://[your-bucket-here]/
 ```
 
 ### Get the Data
 
-*Note:* You can skip this step and use the data already copied to `s3://altus-cdsw-lda-example/`.
+*Note:* You can skip this step and use the data already copied to `s3a://altus-cdsw-lda-example/`.
 
 The data and JAR file both need to first be added to Amazon's S3 storage service. The same data files need
 to exist in an S3 bucket that you have access to. Given the directory of files that was unpacked above to
@@ -94,41 +111,42 @@ upload to HDFS, it can be uploaded to an S3 bucket with:
 aws s3 cp --recursive gutenberg s3://[your-bucket-here]/
 ```
 
-### Set Up AWS
-
-Using Altus currently means using AWS. You will need an AWS account, one that has billing set up, because
-the following operations will incur AWS charges. You'll also need to know the Access Key and Secret Key for 
-your account. These are available the AWS Console account menu, under "My Security Credentials".
-
-Altus will also require an SSH key. Navigate to the EC2 service in AWS, and choose a zone like us-east-2 (Ohio)
-from the region menu. Under "Network & Security" at the left, see "Key Pairs". Create a new key pair called
-"AltusLDAExampleKey", and make sure to keep and secure the `AltusLDAExampleKey.pem` private key file that is
-created.
-
 ### Deploy to Altus
 
-Log in to Altus from https://www.cloudera.com/products/altus.html .
+Log in to [Altus](https://www.cloudera.com/products/altus.html).
 
 To use Altus, first, you must set up an Environment. Choose "Environments" from the left and click "Quickstart".
 Click "Create" next to AWS. 
 
-Set the Altus Environment Name to AltusLDAExample and choose the same region in which you created the SSH keys above,
+Set the Altus Environment Name to `AltusLDAExample` and choose the same region in which you created the SSH keys above,
 such as `us-east-2`. Leave other options at the default. Supply your AWS Access Key and Secret Key when prompted.
 
 Return to the main Altus pane and choose "Jobs" from the left, and choose "Submit Jobs". Fill out the details as
-follow:
+follows:
 
 - Job Settings
   - Submission: Single job
   - Job Type: Spark
   - Job Name: `AltusLDAExample`
-  - Main Class: `altus.AltusLDAExample`
-  - Jars: `s3://altus-cdsw-lda-example/altus-lda-example-1.0.0-jar-with-dependencies.jar` (or your uploaded JAR)
-  - Application Arguments: `--dataDir s3://altus-cdsw-lda-example --sampleRate 1.0 --kValues 5,10,25,100,250 --maxIter 30`
-  - Spark Arguments: `--driver-memory 4g --num-executors 3 --executor-cores 7 --executor-memory 20g --conf spark.yarn.executor.memoryOverhead=8g --conf spark.dynamicAllocation.enabled=false --conf spark.kryoserializer.buffer.max=256m`
+  - Main Class: `altus.AltusLDARunner`
+  - Jars: `s3a://altus-cdsw-lda-example/altus-lda-example-1.0.0-jar-with-dependencies.jar` (or your uploaded JAR)
+  - Application Arguments:
+```
+--dataDir=s3a://altus-cdsw-lda-example --sampleRate=1.0 --kValues=5,10,25,100,250 --maxIter=30
+```
+  - Spark Arguments:
+```
+--driver-memory 4g --num-executors 3 \
+--executor-cores 7 --executor-memory 20g \
+--conf spark.yarn.executor.memoryOverhead=4g \
+--conf spark.dynamicAllocation.enabled=false \
+--conf spark.kryoserializer.buffer.max=256m \
+--conf fs.s3a.access.key="[AWS Access Key]" \
+--conf fs.s3.awsSecretAccessKey="[AWS Secret Key]"
+```
 - Cluster Settings
   - Cluster: Create New
-  - Cluster Name: AltusLDAExample-cluster
+  - Cluster Name: `AltusLDAExample-cluster`
   - Service Type: Spark 2.x
   - CDH Version: CDH 5.12
   - Environment: `AltusLDAExample`
