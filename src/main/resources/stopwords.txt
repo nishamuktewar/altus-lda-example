@@ -522,3 +522,5 @@ yourself
 yourselves
 z
 zero
+project
+gutenberg

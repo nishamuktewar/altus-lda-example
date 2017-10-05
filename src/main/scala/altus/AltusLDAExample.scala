@@ -34,12 +34,24 @@ object AltusLDAExample {
     import org.apache.spark.ml.clustering.LDA
     import org.apache.spark.ml.feature.{CountVectorizer, RegexTokenizer, StopWordsRemover}
     import org.apache.spark.ml.linalg.Vector
-    import org.apache.spark.sql.functions.udf
+    import org.apache.spark.sql.functions.{udf, substring}
+    import scala.util.matching.Regex
 
     // Parse raw text into lines, ignoring boilerplate header/footer
     val newlinesRegex = "\n+".r
-    val headerEndRegex = """\*\*\*.*START.+PROJECT GUTENBERG.*\*\*\*""".r
-    val footerStartRegex = """\*\*\*.*END.+PROJECT GUTENBERG.*\*\*\*""".r
+    val headerEndRegex: Regex =
+      """((START OF THE PROJECT GUTENBERG EBOOK
+        |(\*+)(\*+)(\*+) START OF THE PROJECT GUTENBERG EBOOK
+        |START OF THIS PROJECT GUTENBERG EBOOK
+        |((\<+)(\<+))THIS ELECTRONIC VERSION OF THE COMPLETE WORKS OF WILLIAM
+        |These original Project Gutenberg Etexts will be compiled into a file
+        |computers we used then didn't have lower case at all.)+) *""".r
+    val footerStartRegex: Regex =
+      """((End of The Project Gutenberg EBook of )+) *""".r
+    val languageRegex: Regex =
+      """((Language: [a-zA-Z]+)+) *""".r
+    val CIABookRegex: Regex = """Produced by Dr. Gregory B. Newby""".r
+
 
     val stripHeaderFooterUDF = udf { text: String =>
       val lines = newlinesRegex.split(text).map(_.trim).filter(_.nonEmpty)
@@ -48,17 +60,43 @@ object AltusLDAExample {
       lines.slice(if (headerEnd < 0) 0 else headerEnd + 1,
         if (footerStart < 0) lines.length else footerStart).mkString(" ")
     }
+    def findLanguageUDF = udf { text: String =>
+      val lines = newlinesRegex.split(text).map(_.trim).filter(_.nonEmpty)
+      val start = lines.indexWhere(CIABookRegex.findFirstIn(_).isDefined)
+      if(start < 0){
+        languageRegex.findFirstIn(text).mkString(" ").trim.toUpperCase
+      } else "LANGUAGE: ENGLISH"
+    }
 
+    val getSubstrUDF = udf { x: String => x.substring(x.length-200) }
+    val engBooksRegex: Regex = """(((\/+)(\d+)(\.+)txt)|((\/+)(\d+)(\-+)(0|8)(\.+)txt))""".r
+
+    val findFilenameUDF = udf { x: String =>
+      val start = engBooksRegex.findFirstIn(x)
+      start
+    }
     val allTexts = spark.read.parquet(params.dataDir).
-      withColumn("text", stripHeaderFooterUDF($"text"))
+      withColumn("textStripped", stripHeaderFooterUDF($"text")).
+      withColumn("language", findLanguageUDF($"text")).
+      withColumn("startText", substring($"text", 1, 200)).
+      withColumn("filename", findFilenameUDF($"path"))
+
+    println(s"num of obs: ${allTexts.count()}")
+    allTexts.select("path", "language", "startText", "filename").show(5, false)
+
+    val allEngTexts = allTexts.filter($"filename" =!= "null" && ($"language" === "LANGUAGE: ENGLISH"
+      || $"language" === "LANGUAGE: EN" || $"language" === "LANGUAGE: ENGLISHS" || $"language" === ""))
+
+    println(s"num of obs after filtering: ${allEngTexts.count()}")
+    allEngTexts.select("path", "language", "filename").show(90000, false)
 
     // Split each document into words
     val tokens = new RegexTokenizer().
       setGaps(false).
       setPattern("\\p{L}+").
-      setInputCol("text").
+      setInputCol("textStripped").
       setOutputCol("words").
-      transform(allTexts)
+      transform(allEngTexts)
 
     // Filter out stopwords
     val stopwordsFile = new File("src/main/resources/stopwords.txt")
