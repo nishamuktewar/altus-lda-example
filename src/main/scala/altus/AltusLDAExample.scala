@@ -29,7 +29,6 @@ object AltusLDAExample {
     // START Workbench ------------------------------
 
     import java.io.File
-    import java.net.URI
     import scala.io.Source
 
     import org.apache.spark.ml.clustering.LDA
@@ -42,7 +41,7 @@ object AltusLDAExample {
     val headerEndRegex = """\*\*\*.*START.+PROJECT GUTENBERG.*\*\*\*""".r
     val footerStartRegex = """\*\*\*.*END.+PROJECT GUTENBERG.*\*\*\*""".r
 
-    def stripHeaderFooter(text: String): String = {
+    val stripHeaderFooterUDF = udf { text: String =>
       val lines = newlinesRegex.split(text).map(_.trim).filter(_.nonEmpty)
       val headerEnd = lines.indexWhere(headerEndRegex.findFirstIn(_).isDefined)
       val footerStart = lines.indexWhere(footerStartRegex.findFirstIn(_).isDefined, headerEnd)
@@ -50,20 +49,8 @@ object AltusLDAExample {
         if (footerStart < 0) lines.length else footerStart).mkString(" ")
     }
 
-    // Must glob many times to get all files at all levels of the Gutenberg archive.
-    // Default partitioning would leave very small and large partitions as few are at
-    // the higher levels and many at lower levels.
-    // Explicitly set partitions in order to roughly reflect the number of files
-    // at each level, so about 500 files are in each2
-    val textRDDs = Seq((3, 1), (4, 2), (5, 18), (6, 114), (7, 1)).map {
-      case (depth, partitions) =>
-        val path = s"""${params.dataDir}${"/*" * depth}.txt"""
-        // for example, if depth is 3, then this makes path like dir/*/*/*.txt
-        spark.sparkContext.wholeTextFiles(path, partitions)
-    }
-    val allTexts = spark.sparkContext.union(textRDDs).
-      map { case (path, text) => (URI.create(path).getPath, stripHeaderFooter(text)) }.
-      toDF("path", "text")
+    val allTexts = spark.read.parquet(params.dataDir).
+      withColumn("text", stripHeaderFooterUDF($"text"))
 
     // Split each document into words
     val tokens = new RegexTokenizer().
