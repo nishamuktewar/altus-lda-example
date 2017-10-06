@@ -34,7 +34,7 @@ object AltusLDAExample {
     import org.apache.spark.ml.clustering.LDA
     import org.apache.spark.ml.feature.{CountVectorizer, RegexTokenizer, StopWordsRemover}
     import org.apache.spark.ml.linalg.Vector
-    import org.apache.spark.sql.functions.{udf, substring}
+    import org.apache.spark.sql.functions.{udf, substring, lit}
     import scala.util.matching.Regex
 
     // Parse raw text into lines, ignoring boilerplate header/footer
@@ -136,6 +136,7 @@ object AltusLDAExample {
       setOutputCol("features")
     val vocabModel = countVectorizer.fit(sampleSubset)
     val docTermFreqs = vocabModel.transform(sampleSubset)
+    println(s"Vocabulary: ${vocabModel.vocabulary.mkString(",")}")
 
     // Obtain a train/test split of featurized data, and cache
     val Array(train, test) = docTermFreqs.randomSplit(Array(0.9, 0.1), seed=123)
@@ -191,9 +192,20 @@ object AltusLDAExample {
     val testScored = bestModel.
       transform(test).
       drop("features").
-      withColumn("topic", findIndexMax($"topicDistribution"))
+      withColumn("topic", findIndexMax($"topicDistribution")).
+      withColumn("split", lit("test"))
+
     println("Example topic assignments from test set")
-    testScored.show(10)
+    testScored.select("path", "language", "startText", "filename", "topic", "topicDistribution").show(10, false)
+
+    val trainScored = bestModel.
+      transform(train).
+      drop("features").
+      withColumn("topic", findIndexMax($"topicDistribution")).
+      withColumn("split", lit("train"))
+
+    val scored = trainScored.union(testScored)
+    scored.write.parquet("hdfs:///user/nisha/Data/scored_SampleLDAK10Iter20")
 
     // END Workbench ------------------------------
 
