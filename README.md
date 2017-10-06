@@ -139,9 +139,9 @@ follows:
 ```
   - Spark Arguments:
 ```
---driver-memory 4g --num-executors 3 \
---executor-cores 15 --executor-memory 32g \
---conf spark.yarn.executor.memoryOverhead=16g \
+--driver-cores 1 --driver-memory 4g \
+--num-executors 3 --executor-cores 14 --executor-memory 24g \
+--conf spark.yarn.executor.memoryOverhead=18g \
 --conf spark.dynamicAllocation.enabled=false \
 --conf spark.kryoserializer.buffer.max=256m \
 --conf fs.s3a.access.key="[AWS Access Key]" \
