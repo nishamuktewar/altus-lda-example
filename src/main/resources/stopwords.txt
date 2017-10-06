@@ -621,3 +621,6 @@ ak
 li
 je
 ta
+en
+se
+le

@@ -117,8 +117,8 @@ object AltusLDAExample {
       setCaseSensitive(false).
       setInputCol("words").
       setOutputCol("tokens").
-      transform(tokens).
-      select("path", "tokens")
+      transform(tokens)
+      //select("path", "tokens")
 
     // Sample a subset
     val sampleSubset = if(params.sampleRate < 1.0) {
@@ -144,6 +144,7 @@ object AltusLDAExample {
     test.cache()
     println(s"Train size: ${train.count()}")
     println(s"Test size:  ${test.count()}")
+    test.show()
 
     sampleSubset.unpersist()
 
@@ -196,7 +197,7 @@ object AltusLDAExample {
       withColumn("split", lit("test"))
 
     println("Example topic assignments from test set")
-    testScored.select("path", "language", "startText", "filename", "topic", "topicDistribution").show(10, false)
+    testScored.select("path", "startText", "topic", "topicDistribution").show(10, false)
 
     val trainScored = bestModel.
       transform(train).
