@@ -19,13 +19,16 @@ with Altus in the cloud to build a better model.
 ### Get Data
 
 This example requires the complete Project Gutenberg archive. While the public domain text can be copied
-from the project mirrors, it's very large. A compressed archive of only the text files can be downloaded,
-decompressed, and uploaded to a directory like `/user/ds/gutenberg` on HDFS as follows:
+from the project mirrors, it's very large. A compressed archive of only the text files in Parquet format
+can be downloaded, decompressed, and uploaded to a directory like `/user/ds/gutenberg` on HDFS as follows:
 
 ```bash
 curl https://storage.googleapis.com/altus-cdsw-lda-example/gutenberg-20170929.tgz | tar xz
 hdfs dfs -put gutenberg /user/ds/
 ```
+
+The data consists of `(path, text)` pairs, where "path" is the path from the original Gutenberg archive
+and "text" is the text of the corresponding file.
 
 ### Checkout and Run Code in the Workbench
 
@@ -108,7 +111,7 @@ to exist in an S3 bucket that you have access to. Given the directory of files t
 upload to HDFS, it can be uploaded to an S3 bucket with:
 
 ```bash
-aws s3 cp --recursive gutenberg s3://[your-bucket-here]/
+aws s3 cp --recursive gutenberg s3://[your-bucket-here]/gutenberg
 ```
 
 ### Deploy to Altus
@@ -132,13 +135,13 @@ follows:
   - Jars: `s3a://altus-cdsw-lda-example/altus-lda-example-1.0.0-jar-with-dependencies.jar` (or your uploaded JAR)
   - Application Arguments:
 ```
---dataDir=s3a://altus-cdsw-lda-example --sampleRate=1.0 --kValues=5,10,25,100,250 --maxIter=30
+--dataDir=s3a://altus-cdsw-lda-example/gutenberg --sampleRate=1.0 --kValues=5,10,25,100,250 --maxIter=30
 ```
   - Spark Arguments:
 ```
 --driver-memory 4g --num-executors 3 \
---executor-cores 7 --executor-memory 20g \
---conf spark.yarn.executor.memoryOverhead=4g \
+--executor-cores 15 --executor-memory 32g \
+--conf spark.yarn.executor.memoryOverhead=16g \
 --conf spark.dynamicAllocation.enabled=false \
 --conf spark.kryoserializer.buffer.max=256m \
 --conf fs.s3a.access.key="[AWS Access Key]" \
@@ -150,4 +153,4 @@ follows:
   - Service Type: Spark 2.x
   - CDH Version: CDH 5.12
   - Environment: `AltusLDAExample`
-- Node Config: 3x m4.2xlarge Workers
+- Node Config: 3x m4.4xlarge Workers

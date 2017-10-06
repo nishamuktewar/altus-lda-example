@@ -35,22 +35,21 @@ object AltusLDAExample {
     import org.apache.spark.ml.feature.{CountVectorizer, RegexTokenizer, StopWordsRemover}
     import org.apache.spark.ml.linalg.Vector
     import org.apache.spark.sql.functions.{udf, substring, lit}
-    import scala.util.matching.Regex
 
     // Parse raw text into lines, ignoring boilerplate header/footer
     val newlinesRegex = "\n+".r
-    val headerEndRegex: Regex =
+    val headerEndRegex =
       """((START OF THE PROJECT GUTENBERG EBOOK
         |(\*+)(\*+)(\*+) START OF THE PROJECT GUTENBERG EBOOK
         |START OF THIS PROJECT GUTENBERG EBOOK
         |((\<+)(\<+))THIS ELECTRONIC VERSION OF THE COMPLETE WORKS OF WILLIAM
         |These original Project Gutenberg Etexts will be compiled into a file
         |computers we used then didn't have lower case at all.)+) *""".r
-    val footerStartRegex: Regex =
+    val footerStartRegex =
       """((End of The Project Gutenberg EBook of )+) *""".r
-    val languageRegex: Regex =
+    val languageRegex =
       """((Language: [a-zA-Z]+)+) *""".r
-    val CIABookRegex: Regex = """Produced by Dr. Gregory B. Newby""".r
+    val CIABookRegex = """Produced by Dr. Gregory B. Newby""".r
 
 
     val stripHeaderFooterUDF = udf { text: String =>
@@ -63,18 +62,17 @@ object AltusLDAExample {
     def findLanguageUDF = udf { text: String =>
       val lines = newlinesRegex.split(text).map(_.trim).filter(_.nonEmpty)
       val start = lines.indexWhere(CIABookRegex.findFirstIn(_).isDefined)
-      if(start < 0){
+      if (start < 0) {
         languageRegex.findFirstIn(text).mkString(" ").trim.toUpperCase
-      } else "LANGUAGE: ENGLISH"
+      } else {
+        "LANGUAGE: ENGLISH"
+      }
     }
 
     val getSubstrUDF = udf { x: String => x.substring(x.length-200) }
-    val engBooksRegex: Regex = """(((\/+)(\d+)(\.+)txt)|((\/+)(\d+)(\-+)(0|8)(\.+)txt))""".r
+    val engBooksRegex = """(((\/+)(\d+)(\.+)txt)|((\/+)(\d+)(\-+)(0|8)(\.+)txt))""".r
 
-    val findFilenameUDF = udf { x: String =>
-      val start = engBooksRegex.findFirstIn(x)
-      start
-    }
+    val findFilenameUDF = udf { x: String => engBooksRegex.findFirstIn(x) }
     val allTexts = spark.read.parquet(params.dataDir).
       withColumn("textStripped", stripHeaderFooterUDF($"text")).
       withColumn("language", findLanguageUDF($"text")).
@@ -121,7 +119,7 @@ object AltusLDAExample {
       //select("path", "tokens")
 
     // Sample a subset
-    val sampleSubset = if(params.sampleRate < 1.0) {
+    val sampleSubset = if (params.sampleRate < 1.0) {
       filteredTokens.sample(withReplacement = false, fraction = params.sampleRate, seed=123)
     } else {
       filteredTokens
