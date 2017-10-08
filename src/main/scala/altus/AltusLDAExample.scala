@@ -10,7 +10,7 @@ object AltusLDAExample {
   // START Workbench ------------------------------
 
   case class Params(
-      dataDir: String = "hdfs:///user/ds/DataSets/gutenberg", // Remember to update this!
+      dataDir: String = "hdfs:///user/ds/gutenberg", // Remember to update this!
       outputPath: String = "", // Remember to update this!
       sampleRate: Double = 0.1,
       kValues: String = "10,30",
@@ -163,7 +163,7 @@ object AltusLDAExample {
     val findIndexMax = udf { x: Vector => x.argmax }
     val scored = bestModel.
       transform(docTermFreqs).
-      drop("features").
+      select("path", "topicDistribution").
       withColumn("topic", findIndexMax($"topicDistribution"))
 
     println("Example topic assignments:")
