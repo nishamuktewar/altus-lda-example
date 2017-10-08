@@ -19,11 +19,18 @@ with Altus in the cloud to build a better model.
 ### Get Data
 
 This example requires the complete Project Gutenberg archive. While the public domain text can be copied
-from the project mirrors, it's very large. A compressed archive of only the text files in Parquet format
-can be downloaded, decompressed, and uploaded to a directory like `/user/ds/gutenberg` on HDFS as follows:
+from the project mirrors, it's very large. Just the text files can be `rsync`ed with:
 
 ```bash
-curl https://storage.googleapis.com/altus-cdsw-lda-example/gutenberg-20170929.tgz | tar xz
+rsync --include "*/" --include "*.txt" --exclude "*" -zarv aleph.gutenberg.org::gutenberg gutenberg/
+```
+
+... and then further pared down from there. A compressed archive of only the text files, with most 
+duplicates and obsolete text files removed, in Parquet format, can be downloaded, decompressed, 
+and uploaded to a directory like `/user/ds/gutenberg` on HDFS as follows:
+
+```bash
+curl https://storage.googleapis.com/altus-cdsw-lda-example/gutenberg.tar | tar xv   
 hdfs dfs -put gutenberg /user/ds/
 ```
 
@@ -47,7 +54,7 @@ as part of a runnable Spark application. As such it requires running most, but n
 app packaging but will not work with the Workbench. Select and execute code within the two START/END blocks only.
 
 The code builds and evaluates a few LDA models based on a subset of the data, and prints information
-about the best model that was found.
+about the best model that was found. It also saves the model to the path defined by `--outputPath` if set.
 
 ## Scaling Up with Altus
 
@@ -88,12 +95,7 @@ curl https://www.mirrorservice.org/sites/ftp.apache.org/maven/maven-3/3.5.0/bina
 alias mvn=./apache-maven-3.5.0/bin/mvn
 ```
 
-To package the application JAR file:
-
-```bash
-mvn -Pcloudera -Pspark-deploy package
-```
-
+To package the application JAR file, just `mvn package`. 
 This produces a runnable JAR file like `altus-lda-example-1.0.0-jar-with-dependencies.jar` in `target/`.
 
 Upload it to S3, like so:
@@ -118,8 +120,8 @@ aws s3 cp --recursive gutenberg s3://[your-bucket-here]/gutenberg
 
 Log in to [Altus](https://www.cloudera.com/products/altus.html).
 
-To use Altus, first, you must set up an Environment. Choose "Environments" from the left and click "Quickstart".
-Click "Create" next to AWS. 
+To use Altus, first, you must set up an Environment, if none are alaready available to you. 
+Choose "Environments" from the left and click "Quickstart". Click "Create" next to AWS. 
 
 Set the Altus Environment Name to `AltusLDAExample` and choose the same region in which you created the SSH keys above,
 such as `us-east-2`. Leave other options at the default. Supply your AWS Access Key and Secret Key when prompted.
@@ -135,15 +137,16 @@ follows:
   - Jars: `s3a://altus-cdsw-lda-example/altus-lda-example-1.0.0-jar-with-dependencies.jar` (or your uploaded JAR)
   - Application Arguments:
 ```
---dataDir=s3a://altus-cdsw-lda-example/gutenberg --sampleRate=1.0 --kValues=5,10,25,100,250 --maxIter=30
+--dataDir=s3a://altus-cdsw-lda-example/gutenberg \
+--outputDir=s3a://altus-cdsw-lda-example/model-out \
+--sampleRate=1.0 --kValues=5,10,25,100,250 --maxIter=30
 ```
   - Spark Arguments:
 ```
 --driver-cores 1 --driver-memory 4g \
---num-executors 3 --executor-cores 14 --executor-memory 24g \
---conf spark.yarn.executor.memoryOverhead=18g \
+--num-executors 3 --executor-cores 14 --executor-memory 32g \
+--conf spark.yarn.executor.memoryOverhead=8g \
 --conf spark.dynamicAllocation.enabled=false \
---conf spark.kryoserializer.buffer.max=256m \
 --conf fs.s3a.access.key="[AWS Access Key]" \
 --conf fs.s3.awsSecretAccessKey="[AWS Secret Key]"
 ```
@@ -153,4 +156,4 @@ follows:
   - Service Type: Spark 2.x
   - CDH Version: CDH 5.12
   - Environment: `AltusLDAExample`
-- Node Config: 3x m4.4xlarge Workers
+- Node Config: 3x `m4.4xlarge` Workers
