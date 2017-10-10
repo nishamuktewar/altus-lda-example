@@ -33,7 +33,7 @@ object AltusLDAExample {
     import java.io.File
     import scala.io.Source
     import org.apache.spark.ml.clustering.LDA
-    import org.apache.spark.ml.feature.{CountVectorizer, RegexTokenizer, StopWordsRemover}
+    import org.apache.spark.ml.feature.{CountVectorizer, RegexTokenizer, StopWordsRemover, IDF}
     import org.apache.spark.ml.linalg.Vector
     import org.apache.spark.sql.functions.udf
 
@@ -102,14 +102,18 @@ object AltusLDAExample {
     val countVectorizer = new CountVectorizer().
       setVocabSize(65536).
       setInputCol("tokens").
-      setOutputCol("features")
+      setOutputCol("rawFeatures")
     val vocabModel = countVectorizer.fit(sampleSubset)
     val docTermFreqs = vocabModel.transform(sampleSubset)
 
-    docTermFreqs.cache()
+    val idf = new IDF().
+      setInputCol("rawFeatures").
+      setOutputCol("features")
+    val idfModel = idf.fit(docTermFreqs)
+    val modelingData = idfModel.transform(docTermFreqs)
 
     // Obtain a train/test split of featurized data, and cache
-    val Array(train, test) = docTermFreqs.randomSplit(Array(0.9, 0.1), seed = params.rngSeed)
+    val Array(train, test) = modelingData.randomSplit(Array(0.9, 0.1), seed=123)
     train.cache()
     test.cache()
     println(s"Train size: ${train.count()}")
@@ -162,12 +166,12 @@ object AltusLDAExample {
     // Lookup the topic with highest probability
     val findIndexMax = udf { x: Vector => x.argmax }
     val scored = bestModel.
-      transform(docTermFreqs).
+      transform(modelingData).
       select("path", "topicDistribution").
       withColumn("topic", findIndexMax($"topicDistribution"))
 
     println("Example topic assignments:")
-    scored.show(10)
+    scored.show(10, false)
 
     if (params.outputPath.nonEmpty) {
       scored.write.parquet(params.outputPath)
