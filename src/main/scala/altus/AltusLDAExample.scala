@@ -35,15 +35,17 @@ object AltusLDAExample {
     import org.apache.spark.ml.clustering.LDA
     import org.apache.spark.ml.feature.{CountVectorizer, RegexTokenizer, StopWordsRemover, IDF}
     import org.apache.spark.ml.linalg.Vector
-    import org.apache.spark.sql.functions.udf
+    import org.apache.spark.sql.functions.{udf, lit, col}
 
     // Parse raw text into lines, ignoring boilerplate header/footer
     val newlinesRegex = "\n+".r
     val headerEndRegex = "(START.+PROJECT GUTENBERG|SMALL PRINT|TIME OR FOR MEMBERSHIP)".r
     val footerStartRegex = "(?i)(END.+PROJECT GUTENBERG.+E(BOOK|TEXT)|<<THIS ELECTRONIC VERSION OF)".r
+    val titleRegex = "((Title: [a-zA-Z0-9 ,-\\.]+)+) *".r
 
     val allTexts = spark.read.parquet(params.dataDir).as[(String,String)].flatMap { case (path, text) =>
       val lines = newlinesRegex.split(text).map(_.trim).filter(_.nonEmpty)
+      val title = titleRegex.findFirstIn(text).mkString(" ").replace("Title: ", "")
       // Keep only docs explicitly marked as English
       if (lines.exists(_.contains("Language: English"))) {
         // Try to find lines that are boilerplate header/footer and remove them
@@ -53,11 +55,11 @@ object AltusLDAExample {
             if (headerEnd < 0) 0 else headerEnd + 1,
             if (footerStart < 0) lines.length else footerStart).
           mkString(" ")
-        Some((path, textLines))
+        Some((path, textLines, title))
       } else {
         None
       }
-    }.toDF("path", "text")
+    }.toDF("path", "text", "title")
 
     // Split each document into words
     val tokens = new RegexTokenizer().
@@ -87,7 +89,7 @@ object AltusLDAExample {
       setInputCol("words").
       setOutputCol("tokens").
       transform(tokens).
-      select("path", "tokens")
+      select("path", "title", "tokens")
 
     // Sample a subset
     val sampleSubset = if (params.sampleRate < 1.0) {
@@ -148,7 +150,25 @@ object AltusLDAExample {
     train.unpersist()
     test.unpersist()
 
-    println("Best model top topics (by term weight):")
+    // Lookup the topic with highest probability
+    val findIndexMax = udf { x: Vector => x.argmax }
+    val lookupValue = udf { (x: Vector, i: Int) => x(i) }
+    val scored = bestModel.
+      transform(modelingData).
+      select("path", "title", "topicDistribution").
+      withColumn("topic", findIndexMax($"topicDistribution")).
+      withColumn("topic0", lookupValue($"topicDistribution", lit(0))).
+      withColumn("topic1", lookupValue($"topicDistribution", lit(1))).
+      withColumn("topic2", lookupValue($"topicDistribution", lit(2))).
+      withColumn("topic3", lookupValue($"topicDistribution", lit(3))).
+      withColumn("topic4", lookupValue($"topicDistribution", lit(4))).
+      withColumn("topic5", lookupValue($"topicDistribution", lit(5))).
+      withColumn("topic6", lookupValue($"topicDistribution", lit(6))).
+      withColumn("topic7", lookupValue($"topicDistribution", lit(7))).
+      withColumn("topic8", lookupValue($"topicDistribution", lit(8))).
+      withColumn("topic9", lookupValue($"topicDistribution", lit(9)))
+
+    println("Best model top topics (by term weight) and example top 10 topic assignments:")
     val topicIndices =
       bestModel.describeTopics(10).
       select("termIndices", "termWeights").
@@ -160,25 +180,16 @@ object AltusLDAExample {
       terms.zip(termWeights).foreach { case (term, weight) =>
         println(s"${vocabModel.vocabulary(term)}\t$weight")
       }
+      scored.filter(col("topic") === lit(i)).sort(col(s"topic$i").desc).limit(10).
+        select("path", "title", "topic").show(false)
       println()
     }
-
-    // Lookup the topic with highest probability
-    val findIndexMax = udf { x: Vector => x.argmax }
-    val scored = bestModel.
-      transform(modelingData).
-      select("path", "topicDistribution").
-      withColumn("topic", findIndexMax($"topicDistribution"))
-
-    println("Example topic assignments:")
-    scored.show(10, false)
 
     if (params.outputPath.nonEmpty) {
       scored.write.parquet(params.outputPath)
     }
 
     // END Workbench ------------------------------
-
 
   }
 
