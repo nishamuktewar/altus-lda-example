@@ -35,17 +35,16 @@ object AltusLDAExample {
     import org.apache.spark.ml.clustering.LDA
     import org.apache.spark.ml.feature.{CountVectorizer, RegexTokenizer, StopWordsRemover, IDF}
     import org.apache.spark.ml.linalg.Vector
-    import org.apache.spark.sql.functions.{udf, lit, col}
+    import org.apache.spark.sql.functions.udf
 
     // Parse raw text into lines, ignoring boilerplate header/footer
     val newlinesRegex = "\n+".r
     val headerEndRegex = "(START.+PROJECT GUTENBERG|SMALL PRINT|TIME OR FOR MEMBERSHIP)".r
     val footerStartRegex = "(?i)(END.+PROJECT GUTENBERG.+E(BOOK|TEXT)|<<THIS ELECTRONIC VERSION OF)".r
-    val titleRegex = "((Title: [a-zA-Z0-9 ,-\\.]+)+) *".r
 
     val allTexts = spark.read.parquet(params.dataDir).as[(String,String)].flatMap { case (path, text) =>
       val lines = newlinesRegex.split(text).map(_.trim).filter(_.nonEmpty)
-      val title = titleRegex.findFirstIn(text).mkString(" ").replace("Title: ", "")
+      val title = lines.find(_.startsWith("Title:")).map(_.substring("Title:".length).trim).orNull
       // Keep only docs explicitly marked as English
       if (lines.exists(_.contains("Language: English"))) {
         // Try to find lines that are boilerplate header/footer and remove them
@@ -112,10 +111,10 @@ object AltusLDAExample {
       setInputCol("rawFeatures").
       setOutputCol("features")
     val idfModel = idf.fit(docTermFreqs)
-    val modelingData = idfModel.transform(docTermFreqs)
+    val modelingData = idfModel.transform(docTermFreqs).drop("rawFeatures")
 
     // Obtain a train/test split of featurized data, and cache
-    val Array(train, test) = modelingData.randomSplit(Array(0.9, 0.1), seed=123)
+    val Array(train, test) = modelingData.randomSplit(Array(0.9, 0.1), seed = params.rngSeed)
     train.cache()
     test.cache()
     println(s"Train size: ${train.count()}")
@@ -145,49 +144,43 @@ object AltusLDAExample {
       println(s"k = ${model.getK} : $perplexity")
     }
     println()
-    val bestModel = modelsWithPerplexity.minBy(_._1)._2
+
+    val (_, bestModel) = modelsWithPerplexity.minBy(_._1)
 
     train.unpersist()
     test.unpersist()
 
-    // Lookup the topic with highest probability
-    val findIndexMax = udf { x: Vector => x.argmax }
-    val lookupValue = udf { (x: Vector, i: Int) => x(i) }
+    val vocabulary = vocabModel.vocabulary
+
+    val topTopicTerms =
+      bestModel.describeTopics(10).
+        select("topic", "termIndices").
+        as[(Int, Array[Int])].
+        collect().toMap.
+        mapValues(_.map(vocabulary))
+
     val scored = bestModel.
       transform(modelingData).
-      select("path", "title", "topicDistribution").
-      withColumn("topic", findIndexMax($"topicDistribution")).
-      withColumn("topic0", lookupValue($"topicDistribution", lit(0))).
-      withColumn("topic1", lookupValue($"topicDistribution", lit(1))).
-      withColumn("topic2", lookupValue($"topicDistribution", lit(2))).
-      withColumn("topic3", lookupValue($"topicDistribution", lit(3))).
-      withColumn("topic4", lookupValue($"topicDistribution", lit(4))).
-      withColumn("topic5", lookupValue($"topicDistribution", lit(5))).
-      withColumn("topic6", lookupValue($"topicDistribution", lit(6))).
-      withColumn("topic7", lookupValue($"topicDistribution", lit(7))).
-      withColumn("topic8", lookupValue($"topicDistribution", lit(8))).
-      withColumn("topic9", lookupValue($"topicDistribution", lit(9)))
+      select("path", "title", "topicDistribution")
+    scored.cache()
 
-    println("Best model top topics (by term weight) and example top 10 topic assignments:")
-    val topicIndices =
-      bestModel.describeTopics(10).
-      select("termIndices", "termWeights").
-      as[(Array[Int], Array[Double])].
-      collect()
-
-    topicIndices.zipWithIndex.foreach { case ((terms, termWeights), i) =>
-      println(s"TOPIC $i")
-      terms.zip(termWeights).foreach { case (term, weight) =>
-        println(s"${vocabModel.vocabulary(term)}\t$weight")
-      }
-      scored.filter(col("topic") === lit(i)).sort(col(s"topic$i").desc).limit(10).
-        select("path", "title", "topic").show(false)
+    for (topic <- 0 until bestModel.getK) {
+      println(s"TOPIC $topic")
+      println(topTopicTerms(topic).mkString(", "))
+      val topicConcUDF = udf { x: Vector => x(topic) }
+      scored.
+        withColumn("topicConc", topicConcUDF($"topicDistribution")).
+        orderBy($"topicConc".desc).
+        select("title").
+        show(10, false)
       println()
     }
 
     if (params.outputPath.nonEmpty) {
       scored.write.parquet(params.outputPath)
     }
+
+    scored.unpersist()
 
     // END Workbench ------------------------------
 

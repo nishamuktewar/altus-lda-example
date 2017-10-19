@@ -144,8 +144,8 @@ follows:
   - Spark Arguments:
 ```
 --driver-cores 1 --driver-memory 4g \
---num-executors 3 --executor-cores 14 --executor-memory 32g \
---conf spark.yarn.executor.memoryOverhead=8g \
+--num-executors 3 --executor-cores 14 --executor-memory 12g \
+--conf spark.yarn.executor.memoryOverhead=3g \
 --conf spark.dynamicAllocation.enabled=false \
 --conf fs.s3a.access.key="[AWS Access Key]" \
 --conf fs.s3.awsSecretAccessKey="[AWS Secret Key]"
@@ -156,4 +156,4 @@ follows:
   - Service Type: Spark 2.x
   - CDH Version: CDH 5.12
   - Environment: `AltusLDAExample`
-- Node Config: 3x `m4.4xlarge` Workers
+- Node Config: 3x `c4.4xlarge` Workers

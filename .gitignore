@@ -4,3 +4,5 @@
 .m2/
 *.iml
 target/
+.DS_Store
+
