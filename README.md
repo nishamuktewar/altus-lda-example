@@ -19,13 +19,7 @@ with Altus in the cloud to build a better model.
 ### Get Data
 
 This example requires the complete Project Gutenberg archive. While the public domain text can be copied
-from the project mirrors, it's very large. Just the text files can be `rsync`ed with:
-
-```bash
-rsync --include "*/" --include "*.txt" --exclude "*" -zarv aleph.gutenberg.org::gutenberg gutenberg/
-```
-
-... and then further pared down from there. A compressed archive of only the text files, with most 
+from the project mirrors, it's very large. A compressed archive of only the text files, with most 
 duplicates and obsolete text files removed, in Parquet format, can be downloaded, decompressed, 
 and uploaded to a directory like `/user/ds/gutenberg` on HDFS as follows:
 
@@ -36,6 +30,14 @@ hdfs dfs -put gutenberg /user/ds/
 
 The data consists of `(path, text)` pairs, where "path" is the path from the original Gutenberg archive
 and "text" is the text of the corresponding file.
+
+If you really want to download all of the files directly, then just the text files can be `rsync`ed with:
+
+```bash
+rsync --include "*/" --include "*.txt" --exclude "*" -zarv aleph.gutenberg.org::gutenberg gutenberg/
+```
+
+... and then further pared down from there. But this isn't recommended.
 
 ### Checkout and Run Code in the Workbench
 
@@ -91,8 +93,9 @@ If [Apache Maven](https://maven.apache.org/) is not already available (and it ty
 install it with a package manager. To install it manually, where this is not possible:
 
 ```bash
-curl https://www.mirrorservice.org/sites/ftp.apache.org/maven/maven-3/3.5.0/binaries/apache-maven-3.5.0-bin.tar.gz | tar xz
-alias mvn=./apache-maven-3.5.0/bin/mvn
+mirror=$(curl -s https://www.apache.org/dyn/closer.lua?preferred=true)
+curl "${mirror}/maven/maven-3/3.5.2/binaries/apache-maven-3.5.2-bin.tar.gz" | tar xz
+alias mvn=./apache-maven-3.5.2/bin/mvn
 ```
 
 To package the application JAR file, just `mvn package`. 

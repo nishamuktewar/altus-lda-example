@@ -13,7 +13,7 @@ object AltusLDAExample {
       dataDir: String = "hdfs:///user/ds/gutenberg", // Remember to update this!
       outputPath: String = "", // Remember to update this!
       sampleRate: Double = 0.1,
-      kValues: String = "10,30",
+      kValues: String = "2,25",
       maxIter: Int = 10,
       rngSeed: Int = 123) {
     def kValuesList: Seq[Int] = kValues.split(",").map(_.trim.toInt)

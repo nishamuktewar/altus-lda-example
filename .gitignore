@@ -1,8 +1,6 @@
-.idea/
-.sbt/
-.ivy2/
-.m2/
+/.*/
+/.*
+!.gitignore
 *.iml
 target/
-.DS_Store
-
+/apache-maven-*/
