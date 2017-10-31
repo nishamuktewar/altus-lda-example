@@ -36,6 +36,7 @@ object AltusLDAExample {
     import org.apache.spark.ml.feature.{CountVectorizer, RegexTokenizer, StopWordsRemover, IDF}
     import org.apache.spark.ml.linalg.Vector
     import org.apache.spark.sql.functions.udf
+    import org.apache.spark.storage.StorageLevel
 
     // Parse raw text into lines, ignoring boilerplate header/footer
     val newlinesRegex = "\n+".r
@@ -115,8 +116,9 @@ object AltusLDAExample {
 
     // Obtain a train/test split of featurized data, and cache
     val Array(train, test) = modelingData.randomSplit(Array(0.9, 0.1), seed = params.rngSeed)
-    train.cache()
-    test.cache()
+    // 2x replication for data helps locality with multiple concurrent modeling jobs
+    train.persist(StorageLevel.MEMORY_ONLY_2)
+    test.persist(StorageLevel.MEMORY_ONLY_2)
     println(s"Train size: ${train.count()}")
     println(s"Test size:  ${test.count()}")
 

@@ -46,7 +46,7 @@ https://github.com/nisha/altus-lda-example and open it in the Workbench.
 
 The file [spark-defaults.conf](blob/master/spark-defaults.conf) contains default resource sizing
 for a moderately powerful 5-node cluster. This sizing can be increased or reduced to match your
-cluster.
+cluster. If in doubt, delete this file in your project in order to use cluster defaults.
 
 Run a Scala session with 4 CPUs and 8GB of RAM. (More, or less, depending on your driver resource size.)
 
@@ -63,23 +63,6 @@ about the best model that was found. It also saves the model to the path defined
 With a working model selection process, it's possible to temporarily leverage much more computing power in
 the cloud by spinning up a much larger transient cluster with Altus on AWS to try more models on the full data
 set.
-
-### Set Up AWS
-
-Using Altus currently means using AWS or Microsoft Azure. We'll use AWS in this example.
-
-You will need an AWS account, one that has billing set up, because
-the following operations will incur AWS charges. You'll also need to know the Access Key and Secret Key for 
-your account. These are available the AWS Console account menu, under "My Security Credentials".
-
-Altus will also require an SSH key. Navigate to the EC2 service in AWS, and choose a zone like `us-east-2` (Ohio)
-from the region menu. Under "Network & Security" at the left, see "Key Pairs". Create a new key pair called
-`AltusLDAExampleKey`, and make sure to keep and secure the `AltusLDAExampleKey.pem` private key file that is
-created.
-
-You'll also need to install the AWS CLI interface. In the Workbench Terminal, `pip install awscli`.
-Add your credentials with `aws configure`. Note that this means your AWS credentials are stored in the
-Workbench project!
 
 ### Build the Spark App
 
@@ -119,15 +102,34 @@ upload to HDFS, it can be uploaded to an S3 bucket with:
 aws s3 cp --recursive gutenberg s3://[your-bucket-here]/gutenberg
 ```
 
-### Deploy to Altus
+### Set Up AWS
+
+Using Altus currently means using AWS or Microsoft Azure. We'll use AWS in this example.
+
+You will need an AWS account, one that has billing set up, because
+the following operations will incur AWS charges. You'll also need to know the Access Key and Secret Key for 
+your account. These are available in the [AWS Console](https://aws.amazon.com/), in your account menu at the top right, 
+under  "My Security Credentials".
+
+Altus will also require an SSH key. Navigate to the EC2 service in AWS, and choose a zone like `us-east-2` (US East Ohio)
+from the region menu at the top right. Under "Network & Security" at the left, see "Key Pairs". Create a new key pair called
+`AltusLDAExampleKey`, and make sure to keep and secure the `AltusLDAExampleKey.pem` private key file that is
+created.
+
+### Set Up Altus
 
 Log in to [Altus](https://www.cloudera.com/products/altus.html).
 
-To use Altus, first, you must set up an Environment, if none are alaready available to you. 
-Choose "Environments" from the left and click "Quickstart". Click "Create" next to AWS. 
+To use Altus, first, you must set up an Environment, if none are already available to you. 
+Choose "Environments" from the left and click "Quickstart". Click "Create" next to "Amazon Web Services". 
 
-Set the Altus Environment Name to `AltusLDAExample` and choose the same region in which you created the SSH keys above,
+Set the "Altus Environment Name" to `AltusLDAExample` and choose the same region in which you created the SSH keys above,
 such as `us-east-2`. Leave other options at the default. Supply your AWS Access Key and Secret Key when prompted.
+
+Leave "Archive work loads" suggested, but, the default bucket name is based on the Environment name, and may not
+be available. Use "Customize Resource Names" at the right to customize the logging bucket if needed.
+
+### Deploy to Altus
 
 Return to the main Altus pane and choose "Jobs" from the left, and choose "Submit Jobs". Fill out the details as
 follows:
@@ -139,24 +141,39 @@ follows:
   - Main Class: `altus.AltusLDARunner`
   - Jars: `s3a://altus-cdsw-lda-example/altus-lda-example-1.0.0-jar-with-dependencies.jar` (or your uploaded JAR)
   - Application Arguments:
-```
---dataDir=s3a://altus-cdsw-lda-example/gutenberg \
---outputDir=s3a://altus-cdsw-lda-example/model-out \
---sampleRate=1.0 --kValues=5,10,25,100,250 --maxIter=30
-```
+    - `--dataDir=s3a://altus-cdsw-lda-example/gutenberg`
+    - `--sampleRate=1.0`
+    - `--kValues=25,100,200`
+    - `--maxIter=20`
   - Spark Arguments:
 ```
---driver-cores 1 --driver-memory 4g \
---num-executors 3 --executor-cores 14 --executor-memory 12g \
---conf spark.yarn.executor.memoryOverhead=3g \
---conf spark.dynamicAllocation.enabled=false \
---conf fs.s3a.access.key="[AWS Access Key]" \
---conf fs.s3.awsSecretAccessKey="[AWS Secret Key]"
+    --driver-cores 1 --driver-memory 4g 
+    --num-executors 8 
+    --executor-cores 14 --executor-memory 16g 
+    --conf spark.locality.wait=1s
+    --conf spark.yarn.executor.memoryOverhead=4g 
+    --conf spark.dynamicAllocation.enabled=false 
+    --conf fs.s3a.access.key="[AWS Access Key]" 
+    --conf fs.s3.awsSecretAccessKey="[AWS Secret Key]"
 ```
 - Cluster Settings
   - Cluster: Create New
+    - Uncheck "Terminate cluster once jobs complete" if you wish to try submitting several jobs, but don't forget to shut it down
   - Cluster Name: `AltusLDAExample-cluster`
   - Service Type: Spark 2.x
-  - CDH Version: CDH 5.12
+  - CDH Version: CDH 5.13 (Spark 2.2)
   - Environment: `AltusLDAExample`
-- Node Config: 3x `c4.4xlarge` Workers
+- Node Configuration:
+  - Worker: 3 x c4.4xlarge
+  - Compute Worker: 5 x c4.4xlarge
+    - Purchasing Option: Spot, $0.80 / hour
+- Credentials:
+  - SSH Private Key: (`.pem` file from SSH key above)
+  - Cloudera Manager: (any credentials you like)
+
+You can find application logs on S3 at a path like
+`altus-lda-example-log-archive-bucket/AltusLDAExample-cluster-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/hdfs/logs`.
+
+*Note:* Above, AWS credentials are specified on the command line. This means they may be logged, and visible 
+to users who can browse the job's log files. For alternative ways of specifying credentials, see
+https://www.cloudera.com/documentation/enterprise/latest/topics/spark_s3.html .
