@@ -132,7 +132,11 @@ be available. Use "Customize Resource Names" at the right to customize the loggi
 ### Deploy to Altus
 
 Return to the main Altus pane and choose "Jobs" from the left, and choose "Submit Jobs". Fill out the details as
-follows:
+follows.
+
+Note that `--dataDir` controls where the input files are read from. An additional option, `--outputDir` (not shown)
+causes the final model to be written, as well. This can be another S3 bucket, but must be one you have already
+set up and have write access to.
 
 - Job Settings
   - Submission: Single job
