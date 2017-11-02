@@ -177,3 +177,38 @@ You can find application logs on S3 at a path like
 *Note:* Above, AWS credentials are specified on the command line. This means they may be logged, and visible 
 to users who can browse the job's log files. For alternative ways of specifying credentials, see
 https://www.cloudera.com/documentation/enterprise/latest/topics/spark_s3.html .
+
+### Bonus: Altus CLI
+
+If you left the cluster running, or, already have a cluster running in Altus, you can even launch this
+job from the command line, and from within the Workbench Terminal, too.
+
+First `pip install altuscli` to get access to the latest Altus CLI tools. 
+
+You will also need an _Altus_ Access Key (separate from AWS) in order to invoke Altus commands from the
+command line. In the Altus console, navigate to "My Account" at the top right. Under "Access Keys", choose
+"Generate Access Key". You will get an Access Key and Secret Key. Save the secret key! Or keep the window
+open.
+
+In Terminal, `altus configure` and enter your Altus Access Key and Secret Key.
+
+At this point, it should be possible to 
+[submit a new job](https://www.cloudera.com/documentation/altus/topics/altaws_dejob_jobs_cli.html#submit_spark_job_cli)
+with:
+
+```
+altus dataeng submit-jobs \
+ --cluster-name AltusLDAExample-cluster \
+ --jobs '{ "name": "AltusLDAExample",
+           "sparkJob": {
+             "jars": [
+               "s3a://altus-cdsw-lda-example/altus-lda-example-1.0.0-jar-with-dependencies.jar"
+             ],
+             "applicationArguments": "...",
+             "sparkArguments": "...",
+             "mainClass": "altus.AltusLDARunner"
+        }}'
+```
+
+The `list-jobs` and `terminate-jobs` can be used to manage jobs from the CLI; try `altus dataeng help`. 
+It's even possible to create clusters from the command line!
