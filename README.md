@@ -107,7 +107,11 @@ aws s3 cp --recursive gutenberg s3://[your-bucket-here]/gutenberg
 Using Altus currently means using AWS or Microsoft Azure. We'll use AWS in this example.
 
 You will need an AWS account, one that has billing set up, because
-the following operations will incur AWS charges. You'll also need to know the Access Key and Secret Key for 
+the following operations will incur AWS charges. Refer to
+[AWS Account Requirements](https://www.cloudera.com/documentation/altus/topics/altaws_adm_administration.html#aws_account_requirements) 
+as well to ensure your AWS account allows the operations Altus needs
+
+You'll also need to know the Access Key and Secret Key for 
 your account. These are available in the [AWS Console](https://aws.amazon.com/), in your account menu at the top right, 
 under  "My Security Credentials".
 
